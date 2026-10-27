@@ -1,10 +1,10 @@
 // Recipe recommendation: which recipes to show, and in what order.
 // Order (what the user asked for): recipes that use an ingredient about to run out come first, soonest first;
-// at the same urgency, the user's own recipes come before the built-in ones. Then fewer missing ingredients,
+// at the same urgency, the user's own and bookmarked recipes come before the rest. Then fewer missing ingredients,
 // then more of the fridge used.
 
 export type Stock = { name: string; daysLeft: number }; // daysLeft until the date it is safe to eat
-export type Recipe = { id: string; name: string; ingredients: string[]; mine?: boolean };
+export type Recipe = { id: string; name: string; ingredients: string[]; mine?: boolean; saved?: boolean };
 export type Substitutes = Record<string, string[]>; // 대파 → [쪽파, 양파]
 
 // An ingredient this close (in days) to its safe-to-eat date makes a recipe "urgent".
@@ -19,6 +19,9 @@ export type Match = {
   used: number; // fridge items the recipe uses
   urgentIn: number | null; // days left on the most urgent item it uses, if within URGENT_DAYS
 };
+
+// The user's own recipes and the ones they bookmarked rank the same.
+const favored = (r: Recipe) => !!(r.mine || r.saved);
 
 export function recommend(recipes: Recipe[], stock: Stock[], subs: Substitutes = {}): Match[] {
   // Food past its safe-to-eat date is never suggested as an ingredient.
@@ -56,7 +59,7 @@ export function recommend(recipes: Recipe[], stock: Stock[], subs: Substitutes =
   return matches.sort(
     (a, b) =>
       (a.urgentIn ?? Infinity) - (b.urgentIn ?? Infinity) ||
-      Number(!!b.recipe.mine) - Number(!!a.recipe.mine) ||
+      Number(favored(b.recipe)) - Number(favored(a.recipe)) ||
       a.missing.length - b.missing.length ||
       b.used - a.used,
   );
