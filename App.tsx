@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Character } from './src/Character';
 import { BoxIcon, Category, Ingredient } from './src/Ingredients';
@@ -26,6 +26,7 @@ type Item = {
   id?: string;
   category?: Category;
   box?: number;
+  photo?: string; // a photo the user took; it replaces the drawing everywhere
   place: Place;
   daysLeft: number; // until the date it is safe to eat (먹을 수 있는 기한)
   pastSellBy?: boolean; // 유통기한이 지남
@@ -100,7 +101,7 @@ function HomeScreen() {
             return (
               <View key={it.name} style={s.cell}>
                 <View style={s.icon}>
-                  {it.box != null ? <BoxIcon n={it.box} size={56} /> : <Ingredient id={it.id} category={it.category} size={56} />}
+                  <Thumb item={it} size={56} />
                 </View>
                 <Text style={s.name}>{it.name}</Text>
                 {b ? (
@@ -147,6 +148,13 @@ function HomeScreen() {
       </View>
     </View>
   );
+}
+
+// The user's own photo wins over any drawing; then a numbered box, then the ingredient drawing.
+function Thumb({ item, size }: { item: Item; size: number }) {
+  if (item.photo) return <Image source={{ uri: item.photo }} style={{ width: size + 12, height: size + 12, borderRadius: 18 }} />;
+  if (item.box != null) return <BoxIcon n={item.box} size={size} />;
+  return <Ingredient id={item.id} category={item.category} size={size} />;
 }
 
 function Legend({ color, text }: { color: string; text: string }) {
