@@ -45,6 +45,9 @@ const ITEMS: Item[] = [
   { name: '양파', id: 'onion', place: '실온', daysLeft: 14 },
 ];
 
+// Tapping a compartment and speaking puts everything said into that compartment, so the place need not be said.
+const ROOM: Record<Place, string> = { 냉장: '냉장실', 냉동: '냉동실', 실온: '실온 칸' };
+
 function badge(it: Item): { label: string; color: string } | null {
   if (it.daysLeft < 0) return { label: '먹지 마세요', color: C.over };
   if (it.daysLeft <= 2) return { label: it.daysLeft === 0 ? '오늘까지' : `D-${it.daysLeft}`, color: C.soon };
@@ -52,9 +55,12 @@ function badge(it: Item): { label: string; color: string } | null {
   return null;
 }
 
+function param(key: string) {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get(key);
+}
 function screenFromUrl() {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return 'home';
-  return new URLSearchParams(window.location.search).get('screen') ?? 'home';
+  return param('screen') ?? 'home';
 }
 
 export default function App() {
@@ -96,6 +102,11 @@ function HomeScreen() {
         </View>
 
         <View style={s.fridge}>
+          <View style={s.fridgeTop}>
+            <Pressable style={s.fridgeMic}>
+              <Text style={s.fridgeMicText}>🎙 {ROOM[place]}에 말로 넣기</Text>
+            </Pressable>
+          </View>
           {shown.map((it) => {
             const b = badge(it);
             return (
@@ -170,16 +181,19 @@ const HEARD = '두부 오늘 넣었고 소비기한 11월 5일, 대파 3일 전�
 const PARSED = [
   { id: 'tofu', name: '두부', place: '냉장', put: '10월 27일 (오늘)', until: '11월 5일', note: '말한 소비기한' },
   { id: 'greenOnion', name: '대파', place: '냉장', put: '10월 24일 (3일 전)', until: '10월 31일', note: '대파 기본값 7일' },
-  { id: 'milk', name: '우유', place: '냉장', put: '10월 27일 (오늘)', until: '10월 30일', note: '유통기한 그대로 (참고값 확인 전)' },
+  { id: 'milk', name: '우유', place: '냉장', put: '10월 27일 (오늘)', until: '10월 30일', note: '우유는 유통기한 그대로 (늘리지 않음)' },
 ];
 
 function VoiceScreen() {
+  const room = param('place') as Place | null;
   return (
     <ScrollView contentContainerStyle={s.page}>
       <View style={s.bearRow}>
         <Character face="🐻" size={70} apron pose="hold" />
         <View style={s.bubble}>
-          <Text style={s.bubbleText}>이렇게 들었어요.{'\n'}틀린 곳만 눌러서 고쳐 주세요!</Text>
+          <Text style={s.bubbleText}>
+            {room ? `${ROOM[room]}에 넣을게요.` : '이렇게 들었어요.'}{'\n'}틀린 곳만 눌러서 고쳐 주세요!
+          </Text>
         </View>
       </View>
       <View style={s.heard}>
@@ -192,7 +206,7 @@ function VoiceScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={s.rowName}>{p.name}</Text>
               <View style={s.placeChip}>
-                <Text style={s.placeText}>{p.place}</Text>
+                <Text style={s.placeText}>{room ?? p.place}</Text>
               </View>
             </View>
             <Text style={s.rowLine}>넣은 날 {p.put}</Text>
@@ -263,6 +277,11 @@ const s = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', backgroundColor: C.fridge, borderRadius: 24, padding: 8,
     borderWidth: 3, borderColor: C.fridgeLine,
   },
+  fridgeTop: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end', paddingRight: 6, paddingTop: 2 },
+  fridgeMic: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  fridgeMicText: { fontSize: 13, fontWeight: '700', color: '#4E9C88' },
   cell: { width: '33.33%', alignItems: 'center', paddingVertical: 10 },
   icon: { width: 72, height: 72, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center' },
   name: { marginTop: 6, fontSize: 15, fontWeight: '700', color: C.ink },
