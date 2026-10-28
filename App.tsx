@@ -28,7 +28,7 @@ export default function App() {
 
 // What the bear says, from the most pressing thing in the fridge.
 function bearSays(items: Item[]) {
-  if (!items.length) return { text: '냉장고가 비었어요.\n장 본 걸 말로 넣어 보세요!', mood: 'sleepy' as const };
+  if (!items.length) return { text: '냉장고가 비었어요.\n장 본 걸 말로 넣어 보세요!', mood: 'normal' as const };
   const ranked = items.map((i) => ({ i, ...level(i) })).sort((a, b) => a.daysLeft - b.daysLeft);
   const over = ranked.filter((r) => r.level === 'over');
   if (over.length) return { text: `${over.length > 1 ? `${over[0].i.name} 외 ${over.length - 1}개는` : josa(over[0].i.name, '은', '는')} 기한이 지났어요.\n아깝지만 버려 주세요.`, mood: 'shock' as const };
