@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AddSheet } from './src/AddSheet';
+import { AddSheet, type AddMode } from './src/AddSheet';
 import { Character } from './src/Character';
 import { Fridge as FridgeBody } from './src/Fridge';
 import { BoxIcon, Category, Ingredient } from './src/Ingredients';
@@ -42,7 +42,7 @@ function Fridge() {
   const insets = useSafeAreaInsets();
   const [items, ready] = useItems();
   const [place, setPlace] = useState<Place>('냉장');
-  const [adding, setAdding] = useState<{ place?: Place } | null>(null);
+  const [adding, setAdding] = useState<{ place?: Place; mode?: AddMode } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   useDemo(ready, items);
 
@@ -84,7 +84,7 @@ function Fridge() {
           ))}
         </View>
 
-        <FridgeBody place={place} onSpeak={() => setAdding({ place })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
+        <FridgeBody place={place} onSpeak={() => setAdding({ place })} onPick={() => setAdding({ place, mode: 'pick' })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
           {shown.map((it) => (
             <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
               <View style={[s.icon, it.photo && s.iconPhoto]}>
@@ -108,14 +108,17 @@ function Fridge() {
 
       <View style={[s.dock, { bottom: 20 + insets.bottom }]}>
         <Pressable style={[s.dockBtn, s.dockSmall]} onPress={addBox}>
-          <Text style={s.dockSmallText}>📷 통 추가</Text>
+          <Text style={s.dockSmallText}>📷 통</Text>
+        </Pressable>
+        <Pressable style={[s.dockBtn, s.dockSmall]} onPress={() => setAdding({ mode: 'pick' })}>
+          <Text style={s.dockSmallText}>✋ 골라 넣기</Text>
         </Pressable>
         <Pressable style={[s.dockBtn, s.mic]} onPress={() => setAdding({})}>
           <Text style={s.micText}>🎙 말로 넣기</Text>
         </Pressable>
       </View>
 
-      <AddSheet visible={!!adding} place={adding?.place} onClose={() => setAdding(null)} />
+      <AddSheet visible={!!adding} place={adding?.place} mode={adding?.mode} onClose={() => setAdding(null)} />
       <ItemSheet item={open} onClose={() => setOpenId(null)} />
     </View>
   );
@@ -206,7 +209,7 @@ const s = StyleSheet.create({
   legendText: { fontSize: 12, color: C.soft },
   dock: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', gap: 10 },
   dockBtn: { borderRadius: 26, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
-  dockSmall: { paddingHorizontal: 18, backgroundColor: C.card, borderWidth: 2, borderColor: C.fridgeLine },
+  dockSmall: { paddingHorizontal: 14, backgroundColor: C.card, borderWidth: 2, borderColor: C.fridgeLine },
   dockSmallText: { fontSize: 15, fontWeight: '700', color: C.ink },
   mic: { flex: 1, backgroundColor: C.mint },
   micText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },

@@ -1,6 +1,6 @@
 // The fridge on the home screen, drawn as a fridge: a body with a door handle, a magnet and little feet, and shelves
 // inside holding three things each. The freezer is frosty blue and the room-temperature shelf a wooden cupboard.
-// Tapping the top of it speaks things into that compartment.
+// The buttons on top add things to that compartment, by voice or by picking drawings.
 
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -15,7 +15,7 @@ const LOOK: Record<Place, { body: string; line: string; inside: string; shelf: s
 const PER_SHELF = 3;
 const MIN_SHELVES = 2;
 
-export function Fridge({ place, onSpeak, empty, children }: { place: Place; onSpeak: () => void; empty?: string; children: ReactNode[] }) {
+export function Fridge({ place, onSpeak, onPick, empty, children }: { place: Place; onSpeak: () => void; onPick: () => void; empty?: string; children: ReactNode[] }) {
   const look = LOOK[place];
   const shelves: ReactNode[][] = [];
   for (let i = 0; i < children.length; i += PER_SHELF) shelves.push(children.slice(i, i + PER_SHELF));
@@ -30,8 +30,11 @@ export function Fridge({ place, onSpeak, empty, children }: { place: Place; onSp
             <Text style={st.magnetText}>{place === '냉동' ? '❄' : place === '실온' ? '🧺' : '♥'}</Text>
           </View>
           <View style={{ flex: 1 }} />
+          <Pressable onPress={onPick} style={[st.mic, { borderColor: look.line }]}>
+            <Text style={st.micText}>✋ 골라서</Text>
+          </Pressable>
           <Pressable onPress={onSpeak} style={[st.mic, { borderColor: look.line }]}>
-            <Text style={st.micText}>🎙 {ROOM[place]}에 말로 넣기</Text>
+            <Text style={st.micText}>🎙 {ROOM[place]}에 말로</Text>
           </Pressable>
         </View>
         <View style={[st.inside, { backgroundColor: look.inside, borderColor: look.line }]}>

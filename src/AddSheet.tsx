@@ -1,11 +1,11 @@
-// Adding things: say it (or type it the way you'd say it), tap the common ones, then check the confirm cards.
+// Adding things, two ways: say it (or type it the way you'd say it), or pick drawings by hand. Then check the confirm cards.
 // Nothing is saved until "냉장고에 넣기", and each card can be fixed with a tap.
 
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Character } from './Character';
 import type { Category } from './Ingredients';
-import { QUICK, findFood, foodById, type Food, type Place } from './foods';
+import { FOODS, QUICK, findFood, foodById, type Food, type Place } from './foods';
 import { eatBy, newId, today, type DateKind, type Item } from './item';
 import { parseSpeech } from './parse';
 import { useSpeech } from './speech';
@@ -24,7 +24,17 @@ export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'dairy', label: '유제품' }, { id: 'sauce', label: '소스' }, { id: 'other', label: '기타' },
 ];
 
-export function AddSheet({ visible, place, onClose }: { visible: boolean; place?: Place; onClose: () => void }) {
+export type AddMode = 'voice' | 'pick';
+
+export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }: { visible: boolean; place?: Place; mode?: AddMode; onClose: () => void }) {
+  const [mode, setMode] = useState<AddMode>(startMode);
+  const [shownFor, setShownFor] = useState(visible);
+  if (visible !== shownFor) {
+    setShownFor(visible);
+    if (visible) setMode(startMode);
+  }
+  const [kind, setKind] = useState<Category | 'all'>('all');
+  const [search, setSearch] = useState('');
   const [text, setText] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [other, setOther] = useState('');
@@ -72,6 +82,8 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
     setDrafts([]);
     setText('');
     setSaid(null);
+    setSearch('');
+    setKind('all');
     onClose();
   }
   const update = (id: string, patch: Partial<Draft>) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -85,56 +97,89 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
             <Text style={st.close}>닫기</Text>
           </Pressable>
         </View>
+        <View style={st.modes}>
+          <Chip label="🎙 말로 넣기" on={mode === 'voice'} onPress={() => setMode('voice')} />
+          <Chip label="✋ 골라 넣기" on={mode === 'pick'} onPress={() => setMode('pick')} />
+        </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-          <View style={st.bearRow}>
-            <Character face="🐻" size={56} apron pose={speech.listening ? 'cheer' : 'stand'} mood={speech.listening ? 'happy' : 'normal'} />
-            <View style={st.bubble}>
-              <Text style={st.bubbleText}>
-                {speech.listening ? '듣고 있어요!' : '산 날과 기한까지 말해 주면 알아서 적을게요.'}
-              </Text>
-              <Text style={st.example}>예: 두부 오늘 샀고 소비기한 11월 5일, 대파 3일 전에 샀어</Text>
-            </View>
-          </View>
+          {mode === 'voice' ? (
+            <>
+              <View style={st.bearRow}>
+                <Character face="🐻" size={56} apron pose={speech.listening ? 'cheer' : 'stand'} mood={speech.listening ? 'happy' : 'normal'} />
+                <View style={st.bubble}>
+                  <Text style={st.bubbleText}>
+                    {speech.listening ? '듣고 있어요!' : '산 날과 기한까지 말해 주면 알아서 적을게요.'}
+                  </Text>
+                  <Text style={st.example}>예: 두부 오늘 샀고 소비기한 11월 5일, 대파 3일 전에 샀어</Text>
+                </View>
+              </View>
 
-          {speech.available && (
-            <Pressable onPress={speech.listening ? speech.stop : speech.start} style={[st.mic, speech.listening && st.micOn]}>
-              <Text style={st.micText}>{speech.listening ? '■ 다 말했어요' : '🎙 눌러서 말하기'}</Text>
-            </Pressable>
-          )}
-          {speech.error && <Text style={st.error}>{speech.error}</Text>}
-
-          <View style={st.typeRow}>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder={speech.available ? '말 대신 적어도 돼요' : '말하듯 적어 주세요'}
-              placeholderTextColor={C.soft}
-              style={st.input}
-              multiline
-              onSubmitEditing={() => analyse()}
-            />
-            <Button label="적기" onPress={() => analyse()} style={{ paddingVertical: 10 }} />
-          </View>
-          {said && (
-            <Text style={said.missed ? st.error : st.saidText}>
-              {said.missed
-                ? '아는 재료를 못 찾았어요. 모르는 재료면 아래 "다른 재료"에 이름을 적어 주세요.'
-                : `들은 말: “${said.text}” 빠진 재료가 있으면 아래에서 더해 주세요.`}
-            </Text>
-          )}
-
-          <Text style={st.label}>자주 사는 것</Text>
-          <View style={st.quick}>
-            {QUICK.map((id) => {
-              const food = foodById(id)!;
-              return (
-                <Pressable key={id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
-                  <Thumb item={{ foodId: id, category: food.category }} size={40} />
-                  <Text style={st.quickName}>{food.name}</Text>
+              {speech.available && (
+                <Pressable onPress={speech.listening ? speech.stop : speech.start} style={[st.mic, speech.listening && st.micOn]}>
+                  <Text style={st.micText}>{speech.listening ? '■ 다 말했어요' : '🎙 눌러서 말하기'}</Text>
                 </Pressable>
-              );
-            })}
-          </View>
+              )}
+              {speech.error && <Text style={st.error}>{speech.error}</Text>}
+
+              <View style={st.typeRow}>
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  placeholder={speech.available ? '말 대신 적어도 돼요' : '말하듯 적어 주세요'}
+                  placeholderTextColor={C.soft}
+                  style={st.input}
+                  multiline
+                  onSubmitEditing={() => analyse()}
+                />
+                <Button label="적기" onPress={() => analyse()} style={{ paddingVertical: 10 }} />
+              </View>
+              {said && (
+                <Text style={said.missed ? st.error : st.saidText}>
+                  {said.missed
+                    ? '아는 재료를 못 찾았어요. 모르는 재료면 아래 "다른 재료"에 이름을 적어 주세요.'
+                    : `들은 말: “${said.text}” 빠진 재료가 있으면 아래에서 더해 주세요.`}
+                </Text>
+              )}
+
+              <Text style={st.label}>자주 사는 것</Text>
+              <View style={st.quick}>
+                {QUICK.map((id) => {
+                  const food = foodById(id)!;
+                  return (
+                    <Pressable key={id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
+                      <Thumb item={{ foodId: id, category: food.category }} size={40} />
+                      <Text style={st.quickName}>{food.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <>
+              <TextInput value={search} onChangeText={setSearch} placeholder="🔍 재료 찾기" placeholderTextColor={C.soft} style={[st.input, { flex: 0 }]} />
+              <View style={st.chips}>
+                <Chip small label="전체" on={kind === 'all'} onPress={() => setKind('all')} />
+                {CATEGORIES.map((c) => (
+                  <Chip key={c.id} small label={c.label} on={kind === c.id} onPress={() => setKind(c.id)} />
+                ))}
+              </View>
+              <View style={[st.quick, { marginTop: 8 }]}>
+                {FOODS.filter((f) => (kind === 'all' || f.category === kind) && (!search.trim() || [f.name, ...(f.aliases ?? [])].some((n) => n.includes(search.trim())))).map((food) => {
+                  const n = drafts.filter((d) => d.foodId === food.id).length;
+                  return (
+                    <Pressable key={food.id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
+                      <View style={[st.pickIcon, n > 0 && st.pickOn]}>
+                        <Thumb item={{ foodId: food.id, category: food.category }} size={44} />
+                        {n > 0 && <Text style={st.pickCount}>{n}</Text>}
+                      </View>
+                      <Text style={st.quickName}>{food.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={st.saidText}>목록에 없으면 아래에 이름을 적어 주세요. 사진 없이 그림으로 들어가요.</Text>
+            </>
+          )}
           <View style={st.typeRow}>
             <TextInput value={other} onChangeText={setOther} placeholder="다른 재료 이름" placeholderTextColor={C.soft} style={st.input} onSubmitEditing={addOther} />
             <Button label="추가" kind="plain" onPress={addOther} style={{ paddingVertical: 10 }} />
@@ -224,6 +269,10 @@ const st = StyleSheet.create({
   label: { marginTop: 18, marginBottom: 6, fontSize: 15, fontWeight: '800', color: C.ink },
   quick: { flexDirection: 'row', flexWrap: 'wrap' },
   quickItem: { width: '25%', alignItems: 'center', paddingVertical: 6 },
+  modes: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  pickIcon: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card, borderWidth: 2, borderColor: 'transparent' },
+  pickOn: { borderColor: C.mint },
+  pickCount: { position: 'absolute', top: -6, right: -6, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: C.mint, color: '#FFFFFF', fontSize: 12, fontWeight: '800', textAlign: 'center', lineHeight: 20, overflow: 'hidden' },
   quickName: { fontSize: 12, fontWeight: '700', color: C.ink, marginTop: 2 },
   card: { backgroundColor: C.card, borderRadius: 18, padding: 12, marginTop: 10 },
   cardTop: { flexDirection: 'row', alignItems: 'center' },
