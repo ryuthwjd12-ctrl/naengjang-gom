@@ -4,6 +4,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BoxIcon, Ingredient } from './Ingredients';
 import { foodById, type Place } from './foods';
 import { addDays, daysBetween, level, parseYmd, today, type Item, type Level } from './item';
+import { photoUri } from './store';
 
 export const C = {
   bg: '#FFF8EE',
@@ -26,7 +27,7 @@ export const ROOM: Record<Place, string> = { 냉장: '냉장실', 냉동: '냉�
 
 // The user's own photo wins over any drawing; then a numbered box; then the ingredient's drawing.
 export function Thumb({ item, size }: { item: Pick<Item, 'photo' | 'box' | 'foodId' | 'category'>; size: number }) {
-  if (item.photo) return <Image source={{ uri: item.photo }} style={{ width: size, height: size, borderRadius: size * 0.28 }} />;
+  if (item.photo) return <Image source={{ uri: photoUri(item.photo) }} style={{ width: size, height: size, borderRadius: size * 0.28 }} />;
   if (item.box != null) return <BoxIcon n={item.box} size={size} />;
   return <Ingredient id={foodById(item.foodId)?.art} category={item.category} size={size} />;
 }

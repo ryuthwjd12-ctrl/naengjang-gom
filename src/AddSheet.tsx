@@ -28,6 +28,8 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
   const [text, setText] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [other, setOther] = useState('');
+  // What the last analysis heard, so the user can spot a word it skipped; `missed` when it found nothing at all.
+  const [said, setSaid] = useState<{ text: string; missed: boolean } | null>(null);
   const on = today();
 
   const speech = useSpeech((t, final) => {
@@ -48,6 +50,9 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
       openedAt: p.opened ? p.addedAt : undefined,
       heard: p.heard,
     }));
+    if (!t.trim()) return;
+    setSaid({ text: t.trim(), missed: add.length === 0 });
+    if (add.length === 0) return; // keep the words so the user can fix them
     setDrafts((d) => [...d, ...add]);
     setText('');
   }
@@ -66,6 +71,7 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
     if (speech.listening) speech.stop();
     setDrafts([]);
     setText('');
+    setSaid(null);
     onClose();
   }
   const update = (id: string, patch: Partial<Draft>) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -109,6 +115,13 @@ export function AddSheet({ visible, place, onClose }: { visible: boolean; place?
             />
             <Button label="적기" onPress={() => analyse()} style={{ paddingVertical: 10 }} />
           </View>
+          {said && (
+            <Text style={said.missed ? st.error : st.saidText}>
+              {said.missed
+                ? '아는 재료를 못 찾았어요. 모르는 재료면 아래 "다른 재료"에 이름을 적어 주세요.'
+                : `들은 말: “${said.text}” 빠진 재료가 있으면 아래에서 더해 주세요.`}
+            </Text>
+          )}
 
           <Text style={st.label}>자주 사는 것</Text>
           <View style={st.quick}>
@@ -216,6 +229,7 @@ const st = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'center' },
   name: { fontSize: 17, fontWeight: '800', color: C.ink },
   qty: { fontSize: 13, fontWeight: '700', color: C.soft },
+  saidText: { fontSize: 12, color: C.soft, marginTop: 6 },
   heard: { fontSize: 12, color: C.soft, marginTop: 2 },
   remove: { fontSize: 18, color: C.soft, paddingHorizontal: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },

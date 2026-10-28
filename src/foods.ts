@@ -28,7 +28,7 @@ export const FOODS: Food[] = [
   { id: 'yogurt', name: '요거트', aliases: ['요구르트'], category: 'dairy', place: '냉장', keep: { 냉장: 7 }, opened: 3 },
   { id: 'cheese', name: '치즈', aliases: ['슬라이스 치즈'], category: 'dairy', place: '냉장', keep: { 냉장: 14 }, opened: 7 },
   { id: 'butter', name: '버터', category: 'dairy', place: '냉장', keep: { 냉장: 30, 냉동: 90 }, opened: 30 },
-  { id: 'greenOnion', name: '대파', category: 'veg', art: 'greenOnion', place: '냉장', keep: { 냉장: 7, 냉동: 30 } },
+  { id: 'greenOnion', name: '대파', aliases: ['파'], category: 'veg', art: 'greenOnion', place: '냉장', keep: { 냉장: 7, 냉동: 30 } },
   { id: 'scallion', name: '쪽파', category: 'veg', place: '냉장', keep: { 냉장: 5, 냉동: 30 } },
   { id: 'onion', name: '양파', category: 'veg', art: 'onion', place: '실온', keep: { 실온: 14, 냉장: 14, 냉동: 30 }, opened: 3 },
   { id: 'garlic', name: '마늘', aliases: ['다진 마늘', '다진마늘'], category: 'veg', place: '냉장', keep: { 냉장: 14, 실온: 14, 냉동: 60 }, opened: 7 },

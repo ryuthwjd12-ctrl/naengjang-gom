@@ -18,8 +18,11 @@ export type Parsed = {
 };
 
 const NUM: Record<string, number> = {
-  한: 1, 하루: 1, 두: 2, 이틀: 2, 세: 3, 사흘: 3, 네: 4, 나흘: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10,
+  한: 1, 하루: 1, 두: 2, 이틀: 2, 세: 3, 사흘: 3, 네: 4, 나흘: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10, 열흘: 10,
+  // The recognizer sometimes writes numbers out ("삼일 전").
+  일: 1, 이: 2, 삼: 3, 사: 4, 오: 5, 육: 6, 칠: 7, 팔: 8, 구: 9, 십: 10,
 };
+const num = (s: string) => NUM[s] ?? +s;
 const WEEKDAY: Record<string, number> = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
 
 // A date phrase, matched in this order. Each returns the date given today, and `past` says whether a bare month/day
@@ -28,11 +31,12 @@ type Rule = { re: RegExp; date: (m: RegExpMatchArray, on: string, past: boolean)
 const RULES: Rule[] = [
   { re: /(\d{1,2})\s*월\s*(\d{1,2})\s*일/, date: (m, on, past) => monthDay(+m[1], +m[2], on, past) },
   { re: /(\d{1,2})\s*[./]\s*(\d{1,2})(?!\d)/, date: (m, on, past) => monthDay(+m[1], +m[2], on, past) },
-  { re: /(\d{1,2})\s*일\s*(?:전|앞)/, date: (m, on) => addDays(on, -+m[1]) },
-  { re: /(\d{1,2})\s*일\s*(?:뒤|후)/, date: (m, on) => addDays(on, +m[1]) },
-  { re: /(하루|이틀|사흘|나흘)\s*(?:전|앞)/, date: (m, on) => addDays(on, -NUM[m[1]]) },
-  { re: /(하루|이틀|사흘|나흘)\s*(?:뒤|후)/, date: (m, on) => addDays(on, NUM[m[1]]) },
-  { re: /(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:주|주일)\s*(?:전|앞)/, date: (m, on) => addDays(on, -7 * NUM[m[1]]) },
+  { re: /(\d{1,2}|[일이삼사오육칠팔구십])\s*일\s*(?:전|앞)/, date: (m, on) => addDays(on, -num(m[1])) },
+  { re: /(\d{1,2}|[일이삼사오육칠팔구십])\s*일\s*(?:뒤|후)/, date: (m, on) => addDays(on, num(m[1])) },
+  { re: /(하루|이틀|사흘|나흘|열흘)\s*(?:전|앞)/, date: (m, on) => addDays(on, -NUM[m[1]]) },
+  { re: /(하루|이틀|사흘|나흘|열흘)\s*(?:뒤|후)/, date: (m, on) => addDays(on, NUM[m[1]]) },
+  { re: /(\d|한|두|세|네|일|이|삼|사)\s*주\s*(?:일\s*)?(?:전|앞)/, date: (m, on) => addDays(on, -7 * num(m[1])) },
+  { re: /(?:일\s*)?주일\s*(?:전|앞)/, date: (_m, on) => addDays(on, -7) },
   { re: /(?:다음\s*주|담주)\s*([일월화수목금토])\s*요일/, date: (m, on) => weekday(on, WEEKDAY[m[1]], 1) },
   { re: /(?:이번\s*주)\s*([일월화수목금토])\s*요일/, date: (m, on) => weekday(on, WEEKDAY[m[1]], 0) },
   { re: /(?:지난\s*주|저번\s*주)\s*([일월화수목금토])\s*요일/, date: (m, on) => weekday(on, WEEKDAY[m[1]], -1) },
@@ -80,6 +84,8 @@ function mentions(text: string) {
       from = i + 1;
       if (taken.slice(i, i + name.length).some(Boolean)) continue;
       // Skip names glued to the end of a longer Hangul word ("양파" inside "자색양파" is fine to take, but not "파" in "파스타").
+      // A one-letter name ("파", "햄") must also start a word: not "양파" or "와파".
+      if (name.length === 1 && i > 0 && /[가-힣]/.test(text[i - 1])) continue;
       const after = text[i + name.length];
       if (after && /[가-힣]/.test(after) && !/^(은|는|이|가|을|를|도|랑|이랑|하고|과|와|만|좀|요|두|한|세|네)/.test(text.slice(i + name.length))) continue;
       for (let k = i; k < i + name.length; k++) taken[k] = true;
@@ -89,10 +95,24 @@ function mentions(text: string) {
   return found.sort((a, b) => a.index - b.index);
 }
 
+// "어제 산 두부": a date said just before a name, with 산/받은/넣은, belongs to that name.
+const BEFORE = /\S+(?:\s+\S+)?\s*(?:에\s*)?(?:산|사 온|사온|받은|넣은|들어온)\s*$/;
+
 export function parseSpeech(text: string, opts: { on: string; place?: Place }): Parsed[] {
   const marks = mentions(text);
+  // Where each item's own words end, and a date said in front of it.
+  const ends = marks.map((_m, n) => (n + 1 < marks.length ? marks[n + 1].index : text.length));
+  const before = marks.map((mark, n) => {
+    const from = n > 0 ? marks[n - 1].index + marks[n - 1].length : 0;
+    const head = text.slice(from, mark.index);
+    const m = head.match(BEFORE);
+    const d = m && findDate(m[0], opts.on, true);
+    if (!m || !d || d.date > opts.on) return undefined;
+    if (n > 0) ends[n - 1] = from + (m.index ?? 0);
+    return d.date;
+  });
   return marks.map((mark, n) => {
-    const end = n + 1 < marks.length ? marks[n + 1].index : text.length;
+    const end = ends[n];
     let rest = text.slice(mark.index + mark.length, end);
     const heard = text.slice(mark.index, end).replace(/[\s,.;]+$/, '').trim();
     const food = mark.food;
@@ -132,6 +152,7 @@ export function parseSpeech(text: string, opts: { on: string; place?: Place }): 
     // Any other date is when it was bought or put in.
     const bought = findDate(rest, opts.on, true);
     if (bought && bought.date <= opts.on) item.addedAt = bought.date;
+    else if (before[n]) item.addedAt = before[n]!;
     return item;
   });
 }

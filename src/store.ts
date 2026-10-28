@@ -13,18 +13,26 @@ const listeners = new Set<(items: Item[]) => void>();
 
 function emit() {
   for (const l of listeners) l(items);
-  AsyncStorage.setItem(KEY, JSON.stringify(items)).catch(() => {});
+  // Never write before the saved fridge is read, or a quick first tap would wipe it.
+  if (loaded) AsyncStorage.setItem(KEY, JSON.stringify(items)).catch(() => {});
 }
 
-export async function load() {
-  if (loaded) return items;
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    if (raw) items = JSON.parse(raw);
-  } catch {}
-  loaded = true;
-  for (const l of listeners) l(items);
-  return items;
+let loading: Promise<Item[]> | null = null;
+export function load() {
+  loading ??= (async () => {
+    let saved: Item[] = [];
+    try {
+      const raw = await AsyncStorage.getItem(KEY);
+      if (raw) saved = JSON.parse(raw);
+    } catch {}
+    // Anything added while reading goes on top of what was saved.
+    const added = items.filter((i) => !saved.some((s) => s.id === i.id));
+    items = [...saved, ...added];
+    loaded = true;
+    emit();
+    return items;
+  })();
+  return loading;
 }
 
 export function useItems(): [Item[], boolean] {
@@ -70,20 +78,27 @@ export function nextBoxNumber() {
 }
 
 // Photos: copied out of the picker's temporary file into the app's own documents so they survive.
+// Only the file name is saved: on iPhone the documents folder's full path changes with each app update.
 // On the web (design previews only) the picker's URI is kept as is.
 export function keepPhoto(uri: string): string {
   if (Platform.OS === 'web') return uri;
   const { File, Paths } = require('expo-file-system');
   const ext = uri.split('.').pop()?.split('?')[0] || 'jpg';
-  const dest = new File(Paths.document, `photo-${Date.now()}.${ext}`);
-  new File(uri).copySync(dest);
-  return dest.uri;
+  const name = `photo-${Date.now()}.${ext}`;
+  new File(uri).copySync(new File(Paths.document, name));
+  return name;
 }
-function removePhoto(uri: string) {
+// Where a saved photo is now; full URIs (web, or anything older) are used as they are.
+export function photoUri(photo: string): string {
+  if (Platform.OS === 'web' || photo.includes(':')) return photo;
+  const { File, Paths } = require('expo-file-system');
+  return new File(Paths.document, photo).uri;
+}
+function removePhoto(photo: string) {
   if (Platform.OS === 'web') return;
   try {
     const { File } = require('expo-file-system');
-    const f = new File(uri);
+    const f = new File(photoUri(photo));
     if (f.exists) f.delete();
   } catch {}
 }

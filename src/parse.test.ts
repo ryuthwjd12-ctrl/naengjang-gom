@@ -6,6 +6,7 @@ const on = '2026-10-27'; // a Tuesday
 
 const pick = (text: string, place?: '냉장' | '냉동' | '실온') =>
   parseSpeech(text, { on, place }).map(({ food: _f, heard: _h, ...rest }) => rest);
+const pickFood = (text: string) => parseSpeech(text, { on });
 
 // The example from the spec.
 assert.deepEqual(pick('두부 오늘 넣었고 소비기한 11월 5일, 대파 3일 전에 샀어, 우유 유통기한 10월 30일'), [
@@ -41,4 +42,12 @@ assert.deepEqual(pick('파스타 소스'), []);
 
 // The said alias is kept as the name but the drawing and keep days come from the food.
 assert.equal(parseSpeech('삼겹살', { on })[0].food.id, 'pork');
+// Numbers the recognizer writes out, 일주일, and a date said before the name ("어제 산 두부").
+assert.equal(pick('대파 삼일 전에 샀어')[0].addedAt, '2026-10-24');
+assert.equal(pick('김치 일주일 전에 받았어')[0].addedAt, '2026-10-20');
+assert.equal(pick('버섯 2주 전')[0].addedAt, '2026-10-13');
+assert.deepEqual(pick('어제 산 두부랑 오늘 산 계란').map((p) => p.addedAt), ['2026-10-26', '2026-10-27']);
+assert.deepEqual(pick('두부 어제 샀고 계란 그저께').map((p) => p.addedAt), ['2026-10-26', '2026-10-25']);
+// 파 alone is 대파, but not inside 양파.
+assert.deepEqual(pickFood('파 한 단이랑 양파').map((p) => p.food.id), ['greenOnion', 'onion']);
 console.log('parse: ok');
