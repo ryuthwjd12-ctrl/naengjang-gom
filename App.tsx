@@ -11,6 +11,7 @@ import { takePhoto } from './src/photo';
 import { FOODS, type Place } from './src/foods';
 import { addDays, josa, level, newId, today, type Item } from './src/item';
 import { addItems, nextBoxNumber, useItems } from './src/store';
+import { RecipeScreen } from './src/RecipeScreen';
 import { C, LevelBadge, PLACES, ROOM, Thumb } from './src/ui';
 
 function param(key: string) {
@@ -42,6 +43,7 @@ function bearSays(items: Item[]) {
 function Fridge() {
   const insets = useSafeAreaInsets();
   const [items, ready] = useItems();
+  const [screen, setScreen] = useState<'냉장고' | '레시피'>('냉장고');
   const [place, setPlace] = useState<Place>('냉장');
   const [adding, setAdding] = useState<{ place?: Place; mode?: AddMode } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -82,63 +84,78 @@ function Fridge() {
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <ScrollView contentContainerStyle={s.page}>
-        <View style={s.header}>
-          <Text style={s.title}>냉장곰</Text>
-          <Text style={s.sub}>오늘도 남김없이</Text>
-        </View>
+      {screen === '레시피' ? (
+        <RecipeScreen items={items} />
+      ) : (
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={s.page}>
+            <View style={s.header}>
+              <Text style={s.title}>냉장곰</Text>
+              <Text style={s.sub}>오늘도 남김없이</Text>
+            </View>
 
-        <View style={s.bearRow}>
-          <Character face="🐻" size={86} apron pose="wave" mood={bear.mood} />
-          <View style={s.bubble}>
-            <Text style={s.bubbleText}>{bear.text}</Text>
+            <View style={s.bearRow}>
+              <Character face="🐻" size={86} apron pose="wave" mood={bear.mood} />
+              <View style={s.bubble}>
+                <Text style={s.bubbleText}>{bear.text}</Text>
+              </View>
+            </View>
+
+            <View style={s.tabs}>
+              {PLACES.map((p) => (
+                <Pressable key={p} onPress={() => setPlace(p)} style={[s.tab, place === p && s.tabOn]}>
+                  <Text style={[s.tabText, place === p && s.tabTextOn]}>
+                    {p} {items.filter((i) => i.place === p).length}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Animated.View {...swipe.panHandlers} style={{ transform: [{ translateX: slide }] }}>
+              <FridgeBody place={place} onSpeak={() => setAdding({ place })} onPick={() => setAdding({ place, mode: 'pick' })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
+                {shown.map((it) => (
+                  <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
+                    <View style={[s.icon, it.photo && s.iconPhoto]}>
+                      <Thumb item={it} size={it.photo ? 72 : 56} />
+                    </View>
+                    <Text style={s.name} numberOfLines={1}>
+                      {it.name}
+                    </Text>
+                    <LevelBadge item={it} />
+                  </Pressable>
+                ))}
+              </FridgeBody>
+            </Animated.View>
+
+            <View style={s.legend}>
+              <Legend color={C.week} text="먹을 수 있는 기한 3~5일 남음" />
+              <Legend color={C.soon} text="2일 이내" />
+              <Legend color={C.over} text="기한 지남, 먹지 마세요" />
+            </View>
+            <View style={{ height: 110 }} />
+          </ScrollView>
+
+          <View style={[s.dock, { bottom: 12 }]}>
+            <Pressable style={[s.dockBtn, s.dockSmall]} onPress={addBox}>
+              <Text style={s.dockSmallText} numberOfLines={1}>📷 통</Text>
+            </Pressable>
+            <Pressable style={[s.dockBtn, s.dockSmall]} onPress={() => setAdding({ mode: 'pick' })}>
+              <Text style={s.dockSmallText} numberOfLines={1}>✋ 골라서</Text>
+            </Pressable>
+            <Pressable style={[s.dockBtn, s.mic]} onPress={() => setAdding({})}>
+              <Text style={s.micText} numberOfLines={1}>🎙 말로 넣기</Text>
+            </Pressable>
           </View>
         </View>
+      )}
 
-        <View style={s.tabs}>
-          {PLACES.map((p) => (
-            <Pressable key={p} onPress={() => setPlace(p)} style={[s.tab, place === p && s.tabOn]}>
-              <Text style={[s.tabText, place === p && s.tabTextOn]}>
-                {p} {items.filter((i) => i.place === p).length}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Animated.View {...swipe.panHandlers} style={{ transform: [{ translateX: slide }] }}>
-          <FridgeBody place={place} onSpeak={() => setAdding({ place })} onPick={() => setAdding({ place, mode: 'pick' })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
-            {shown.map((it) => (
-              <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
-                <View style={[s.icon, it.photo && s.iconPhoto]}>
-                  <Thumb item={it} size={it.photo ? 72 : 56} />
-                </View>
-                <Text style={s.name} numberOfLines={1}>
-                  {it.name}
-                </Text>
-                <LevelBadge item={it} />
-              </Pressable>
-            ))}
-          </FridgeBody>
-        </Animated.View>
-
-        <View style={s.legend}>
-          <Legend color={C.week} text="먹을 수 있는 기한 3~5일 남음" />
-          <Legend color={C.soon} text="2일 이내" />
-          <Legend color={C.over} text="기한 지남, 먹지 마세요" />
-        </View>
-        <View style={{ height: 110 }} />
-      </ScrollView>
-
-      <View style={[s.dock, { bottom: 20 + insets.bottom }]}>
-        <Pressable style={[s.dockBtn, s.dockSmall]} onPress={addBox}>
-          <Text style={s.dockSmallText} numberOfLines={1}>📷 통</Text>
-        </Pressable>
-        <Pressable style={[s.dockBtn, s.dockSmall]} onPress={() => setAdding({ mode: 'pick' })}>
-          <Text style={s.dockSmallText} numberOfLines={1}>✋ 골라서</Text>
-        </Pressable>
-        <Pressable style={[s.dockBtn, s.mic]} onPress={() => setAdding({})}>
-          <Text style={s.micText} numberOfLines={1}>🎙 말로 넣기</Text>
-        </Pressable>
+      <View style={[s.nav, { paddingBottom: 8 + insets.bottom }]}>
+        {(['냉장고', '레시피'] as const).map((t) => (
+          <Pressable key={t} onPress={() => setScreen(t)} style={s.navBtn}>
+            <Text style={[s.navIcon, screen !== t && { opacity: 0.45 }]}>{t === '냉장고' ? '🧊' : '🍳'}</Text>
+            <Text style={[s.navText, screen === t && { color: C.mintInk }]}>{t}</Text>
+          </Pressable>
+        ))}
       </View>
 
       <AddSheet visible={!!adding} place={adding?.place} mode={adding?.mode} onClose={() => setAdding(null)} />
@@ -229,6 +246,10 @@ const s = StyleSheet.create({
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 12, color: C.soft },
+  nav: { flexDirection: 'row', backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 6 },
+  navBtn: { flex: 1, alignItems: 'center' },
+  navIcon: { fontSize: 22 },
+  navText: { fontSize: 12, fontWeight: '800', color: C.soft, marginTop: 1 },
   dock: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', gap: 8 },
   dockBtn: { borderRadius: 26, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   dockSmall: { paddingHorizontal: 12, backgroundColor: C.card, borderWidth: 2, borderColor: C.fridgeLine },
