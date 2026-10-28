@@ -4,6 +4,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import { AddSheet } from './src/AddSheet';
 import { Character } from './src/Character';
+import { Fridge as FridgeBody } from './src/Fridge';
 import { BoxIcon, Category, Ingredient } from './src/Ingredients';
 import { ItemSheet, takePhoto } from './src/ItemSheet';
 import type { Place } from './src/foods';
@@ -83,12 +84,7 @@ function Fridge() {
           ))}
         </View>
 
-        <View style={s.fridge}>
-          <View style={s.fridgeTop}>
-            <Pressable onPress={() => setAdding({ place })} style={s.fridgeMic}>
-              <Text style={s.fridgeMicText}>🎙 {ROOM[place]}에 말로 넣기</Text>
-            </Pressable>
-          </View>
+        <FridgeBody place={place} onSpeak={() => setAdding({ place })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
           {shown.map((it) => (
             <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
               <View style={[s.icon, it.photo && s.iconPhoto]}>
@@ -100,8 +96,7 @@ function Fridge() {
               <LevelBadge item={it} />
             </Pressable>
           ))}
-          {ready && shown.length === 0 && <Text style={s.empty}>{ROOM[place]}이 비어 있어요</Text>}
-        </View>
+        </FridgeBody>
 
         <View style={s.legend}>
           <Legend color={C.week} text="먹을 수 있는 기한 3~5일 남음" />
@@ -201,14 +196,10 @@ const s = StyleSheet.create({
   tabText: { fontSize: 15, color: C.soft, fontWeight: '700' },
   tabTextOn: { color: '#FFFFFF' },
   fridge: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: C.fridge, borderRadius: 24, padding: 8, borderWidth: 3, borderColor: C.fridgeLine, minHeight: 160 },
-  fridgeTop: { width: '100%', flexDirection: 'row', justifyContent: 'flex-end', paddingRight: 6, paddingTop: 2 },
-  fridgeMic: { backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  fridgeMicText: { fontSize: 13, fontWeight: '700', color: C.mintInk },
-  cell: { width: '33.33%', alignItems: 'center', paddingVertical: 10 },
+  cell: { width: '33.33%', alignItems: 'center', paddingVertical: 8 },
   icon: { width: 72, height: 72, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   iconPhoto: { backgroundColor: 'transparent' },
   name: { marginTop: 6, fontSize: 15, fontWeight: '700', color: C.ink, maxWidth: '90%' },
-  empty: { width: '100%', textAlign: 'center', paddingVertical: 36, color: C.soft, fontSize: 15 },
   legend: { marginTop: 10, gap: 4 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
