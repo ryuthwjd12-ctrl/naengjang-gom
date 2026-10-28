@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Place } from './foods';
-import { C, ROOM } from './ui';
+import { C } from './ui';
 
 const LOOK: Record<Place, { body: string; line: string; inside: string; shelf: string; shelfEdge: string; handle: string }> = {
   냉장: { body: '#FFFFFF', line: C.fridgeLine, inside: C.fridge, shelf: '#F4FBF9', shelfEdge: '#BFE3D8', handle: '#B8E0D4' },
@@ -31,10 +31,10 @@ export function Fridge({ place, onSpeak, onPick, empty, children }: { place: Pla
           </View>
           <View style={{ flex: 1 }} />
           <Pressable onPress={onPick} style={[st.mic, { borderColor: look.line }]}>
-            <Text style={st.micText}>✋ 골라서</Text>
+            <Text style={st.micText} numberOfLines={1}>✋ 골라서</Text>
           </Pressable>
           <Pressable onPress={onSpeak} style={[st.mic, { borderColor: look.line }]}>
-            <Text style={st.micText}>🎙 {ROOM[place]}에 말로</Text>
+            <Text style={st.micText} numberOfLines={1}>🎙 말로</Text>
           </Pressable>
         </View>
         <View style={[st.inside, { backgroundColor: look.inside, borderColor: look.line }]}>
@@ -62,7 +62,7 @@ export function Fridge({ place, onSpeak, onPick, empty, children }: { place: Pla
 const st = StyleSheet.create({
   body: { borderRadius: 28, borderWidth: 3, padding: 10, paddingTop: 8 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, minHeight: 32 },
-  handle: { width: 46, height: 8, borderRadius: 4 },
+  handle: { width: 40, height: 8, borderRadius: 4, flexShrink: 1 },
   magnet: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, backgroundColor: '#FFE3E8', alignItems: 'center', justifyContent: 'center' },
   magnetText: { fontSize: 12, color: '#F08CA0', lineHeight: 16 },
   mic: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 2, paddingHorizontal: 10, paddingVertical: 5 },

@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AddSheet, type AddMode } from './src/AddSheet';
 import { Character } from './src/Character';
 import { Fridge as FridgeBody } from './src/Fridge';
 import { BoxIcon, Category, Ingredient } from './src/Ingredients';
-import { ItemSheet, takePhoto } from './src/ItemSheet';
+import { ItemSheet } from './src/ItemSheet';
+import { takePhoto } from './src/photo';
 import { FOODS, type Place } from './src/foods';
 import { addDays, josa, level, newId, today, type Item } from './src/item';
 import { addItems, nextBoxNumber, useItems } from './src/store';
@@ -46,6 +47,26 @@ function Fridge() {
   const [openId, setOpenId] = useState<string | null>(null);
   useDemo(ready, items);
 
+  // Swiping sideways on the fridge moves to the next compartment (냉장 ↔ 냉동 ↔ 실온), sliding the new one in.
+  const slide = useRef(new Animated.Value(0)).current;
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  function go(to: Place, from: 1 | -1) {
+    setPlace(to);
+    slide.setValue(from * 60);
+    Animated.spring(slide, { toValue: 0, useNativeDriver: Platform.OS !== 'web', speed: 20, bounciness: 4 }).start();
+  }
+  const swipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderRelease: (_e, g) => {
+        const i = PLACES.indexOf(placeRef.current);
+        if (g.dx < -50 && i < PLACES.length - 1) go(PLACES[i + 1], 1);
+        else if (g.dx > 50 && i > 0) go(PLACES[i - 1], -1);
+      },
+    }),
+  ).current;
+
   const shown = items.filter((i) => i.place === place).sort((a, b) => level(a).daysLeft - level(b).daysLeft);
   const bear = bearSays(items);
   const open = items.find((i) => i.id === openId) ?? null;
@@ -84,19 +105,21 @@ function Fridge() {
           ))}
         </View>
 
-        <FridgeBody place={place} onSpeak={() => setAdding({ place })} onPick={() => setAdding({ place, mode: 'pick' })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
-          {shown.map((it) => (
-            <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
-              <View style={[s.icon, it.photo && s.iconPhoto]}>
-                <Thumb item={it} size={it.photo ? 72 : 56} />
-              </View>
-              <Text style={s.name} numberOfLines={1}>
-                {it.name}
-              </Text>
-              <LevelBadge item={it} />
-            </Pressable>
-          ))}
-        </FridgeBody>
+        <Animated.View {...swipe.panHandlers} style={{ transform: [{ translateX: slide }] }}>
+          <FridgeBody place={place} onSpeak={() => setAdding({ place })} onPick={() => setAdding({ place, mode: 'pick' })} empty={ready ? `${ROOM[place]}이 비어 있어요` : undefined}>
+            {shown.map((it) => (
+              <Pressable key={it.id} style={s.cell} onPress={() => setOpenId(it.id)}>
+                <View style={[s.icon, it.photo && s.iconPhoto]}>
+                  <Thumb item={it} size={it.photo ? 72 : 56} />
+                </View>
+                <Text style={s.name} numberOfLines={1}>
+                  {it.name}
+                </Text>
+                <LevelBadge item={it} />
+              </Pressable>
+            ))}
+          </FridgeBody>
+        </Animated.View>
 
         <View style={s.legend}>
           <Legend color={C.week} text="먹을 수 있는 기한 3~5일 남음" />
@@ -108,13 +131,13 @@ function Fridge() {
 
       <View style={[s.dock, { bottom: 20 + insets.bottom }]}>
         <Pressable style={[s.dockBtn, s.dockSmall]} onPress={addBox}>
-          <Text style={s.dockSmallText}>📷 통</Text>
+          <Text style={s.dockSmallText} numberOfLines={1}>📷 통</Text>
         </Pressable>
         <Pressable style={[s.dockBtn, s.dockSmall]} onPress={() => setAdding({ mode: 'pick' })}>
-          <Text style={s.dockSmallText}>✋ 골라 넣기</Text>
+          <Text style={s.dockSmallText} numberOfLines={1}>✋ 골라서</Text>
         </Pressable>
         <Pressable style={[s.dockBtn, s.mic]} onPress={() => setAdding({})}>
-          <Text style={s.micText}>🎙 말로 넣기</Text>
+          <Text style={s.micText} numberOfLines={1}>🎙 말로 넣기</Text>
         </Pressable>
       </View>
 
@@ -206,10 +229,10 @@ const s = StyleSheet.create({
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 12, color: C.soft },
-  dock: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', gap: 10 },
+  dock: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', gap: 8 },
   dockBtn: { borderRadius: 26, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
-  dockSmall: { paddingHorizontal: 14, backgroundColor: C.card, borderWidth: 2, borderColor: C.fridgeLine },
+  dockSmall: { paddingHorizontal: 12, backgroundColor: C.card, borderWidth: 2, borderColor: C.fridgeLine },
   dockSmallText: { fontSize: 15, fontWeight: '700', color: C.ink },
   mic: { flex: 1, backgroundColor: C.mint },
-  micText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
+  micText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
 });

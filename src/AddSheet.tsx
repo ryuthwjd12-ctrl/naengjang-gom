@@ -2,15 +2,16 @@
 // Nothing is saved until "냉장고에 넣기", and each card can be fixed with a tap.
 
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Character } from './Character';
 import type { Category } from './Ingredients';
 import { FOODS, QUICK, findFood, foodById, type Food, type Place } from './foods';
 import { eatBy, newId, today, type DateKind, type Item } from './item';
 import { parseSpeech } from './parse';
+import { takePhoto } from './photo';
 import { useSpeech } from './speech';
 import { addItems } from './store';
-import { Button, C, Chip, DateStepper, PLACES, ROOM, Thumb, dateLabel } from './ui';
+import { Button, C, Chip, DateStepper, Input, QtyStepper, PLACES, ROOM, Thumb, dateLabel } from './ui';
 
 type Draft = Item & { heard?: string };
 
@@ -28,10 +29,15 @@ export type AddMode = 'voice' | 'pick';
 
 export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }: { visible: boolean; place?: Place; mode?: AddMode; onClose: () => void }) {
   const [mode, setMode] = useState<AddMode>(startMode);
+  // Picking by hand is two steps: choose drawings, then check the cards.
+  const [checking, setChecking] = useState(false);
   const [shownFor, setShownFor] = useState(visible);
   if (visible !== shownFor) {
     setShownFor(visible);
-    if (visible) setMode(startMode);
+    if (visible) {
+      setMode(startMode);
+      setChecking(false);
+    }
   }
   const [kind, setKind] = useState<Category | 'all'>('all');
   const [search, setSearch] = useState('');
@@ -66,6 +72,13 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
     setDrafts((d) => [...d, ...add]);
     setText('');
   }
+  // A photo of something: it goes in with the photo instead of a drawing, and the user names it on its card.
+  async function addPhoto() {
+    const photo = await takePhoto();
+    if (!photo) return;
+    setDrafts((d) => [...d, { id: newId(), name: '', photo, category: 'other', place: place ?? '냉장', placeSince: on, addedAt: on }]);
+    if (mode === 'pick') setChecking(true);
+  }
   function addOther() {
     const name = other.trim();
     if (!name) return;
@@ -74,7 +87,7 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
     setOther('');
   }
   function save() {
-    addItems(drafts.map(({ heard: _heard, ...item }) => ({ ...item, placeSince: item.place === '냉동' ? item.addedAt : item.placeSince })));
+    addItems(drafts.map(({ heard: _heard, ...item }) => ({ ...item, name: item.name.trim() || '이름 없는 재료', placeSince: item.place === '냉동' ? item.addedAt : item.placeSince })));
     close();
   }
   function close() {
@@ -84,8 +97,13 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
     setSaid(null);
     setSearch('');
     setKind('all');
+    setChecking(false);
     onClose();
   }
+  // Tapping a drawing picks it; tapping it again takes it back out. How many goes on its card.
+  const toggle = (food: Food) =>
+    setDrafts((d) => (d.some((x) => x.foodId === food.id) ? d.filter((x) => x.foodId !== food.id) : [...d, fromFood(food, place, on)]));
+  const showCards = mode === 'voice' || checking;
   const update = (id: string, patch: Partial<Draft>) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   return (
@@ -98,8 +116,17 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
           </Pressable>
         </View>
         <View style={st.modes}>
-          <Chip label="🎙 말로 넣기" on={mode === 'voice'} onPress={() => setMode('voice')} />
-          <Chip label="✋ 골라 넣기" on={mode === 'pick'} onPress={() => setMode('pick')} />
+          <Chip label="🎙 말로" on={mode === 'voice'} onPress={() => setMode('voice')} style={st.mode} />
+          <Chip
+            label="✋ 골라서"
+            on={mode === 'pick'}
+            onPress={() => {
+              setMode('pick');
+              setChecking(false);
+            }}
+            style={st.mode}
+          />
+          <Chip label="📷 사진" onPress={addPhoto} style={st.mode} />
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           {mode === 'voice' ? (
@@ -122,7 +149,7 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
               {speech.error && <Text style={st.error}>{speech.error}</Text>}
 
               <View style={st.typeRow}>
-                <TextInput
+                <Input
                   value={text}
                   onChangeText={setText}
                   placeholder={speech.available ? '말 대신 적어도 돼요' : '말하듯 적어 주세요'}
@@ -146,58 +173,76 @@ export function AddSheet({ visible, place, mode: startMode = 'voice', onClose }:
                 {QUICK.map((id) => {
                   const food = foodById(id)!;
                   return (
-                    <Pressable key={id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
-                      <Thumb item={{ foodId: id, category: food.category }} size={40} />
-                      <Text style={st.quickName}>{food.name}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </>
-          ) : (
-            <>
-              <TextInput value={search} onChangeText={setSearch} placeholder="🔍 재료 찾기" placeholderTextColor={C.soft} style={[st.input, { flex: 0 }]} />
-              <View style={st.chips}>
-                <Chip small label="전체" on={kind === 'all'} onPress={() => setKind('all')} />
-                {CATEGORIES.map((c) => (
-                  <Chip key={c.id} small label={c.label} on={kind === c.id} onPress={() => setKind(c.id)} />
-                ))}
-              </View>
-              <View style={[st.quick, { marginTop: 8 }]}>
-                {FOODS.filter((f) => (kind === 'all' || f.category === kind) && (!search.trim() || [f.name, ...(f.aliases ?? [])].some((n) => n.includes(search.trim())))).map((food) => {
-                  const n = drafts.filter((d) => d.foodId === food.id).length;
-                  return (
-                    <Pressable key={food.id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
-                      <View style={[st.pickIcon, n > 0 && st.pickOn]}>
-                        <Thumb item={{ foodId: food.id, category: food.category }} size={44} />
-                        {n > 0 && <Text style={st.pickCount}>{n}</Text>}
+                    <Pressable key={id} onPress={() => toggle(food)} style={st.quickItem}>
+                      <View style={[st.quickIcon, drafts.some((d) => d.foodId === id) && st.pickOn]}>
+                        <Thumb item={{ foodId: id, category: food.category }} size={40} />
                       </View>
                       <Text style={st.quickName}>{food.name}</Text>
                     </Pressable>
                   );
                 })}
               </View>
-              <Text style={st.saidText}>목록에 없으면 아래에 이름을 적어 주세요. 사진 없이 그림으로 들어가요.</Text>
+            </>
+          ) : checking ? (
+            <Pressable onPress={() => setChecking(false)} hitSlop={8}>
+              <Text style={st.back}>‹ 더 고르기</Text>
+            </Pressable>
+          ) : (
+            <>
+              <Input value={search} onChangeText={setSearch} placeholder="🔍 재료 찾기" placeholderTextColor={C.soft} style={[st.input, { flex: 0 }]} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.kinds}>
+                <Chip small label="전체" on={kind === 'all'} onPress={() => setKind('all')} />
+                {CATEGORIES.map((c) => (
+                  <Chip key={c.id} small label={c.label} on={kind === c.id} onPress={() => setKind(c.id)} />
+                ))}
+              </ScrollView>
+              <View style={[st.quick, { marginTop: 8 }]}>
+                {FOODS.filter((f) => (kind === 'all' || f.category === kind) && (!search.trim() || [f.name, ...(f.aliases ?? [])].some((n) => n.includes(search.trim())))).map((food) => {
+                  const picked = drafts.some((d) => d.foodId === food.id);
+                  return (
+                    <Pressable key={food.id} onPress={() => toggle(food)} style={st.quickItem}>
+                      <View style={[st.pickIcon, picked && st.pickOn]}>
+                        <Thumb item={{ foodId: food.id, category: food.category }} size={44} />
+                        {picked && <Text style={st.pickCount}>✓</Text>}
+                      </View>
+                      <Text style={st.quickName}>{food.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={st.saidText}>목록에 없으면 이름을 적거나 📷 사진으로 넣어 주세요.</Text>
             </>
           )}
-          <View style={st.typeRow}>
-            <TextInput value={other} onChangeText={setOther} placeholder="다른 재료 이름" placeholderTextColor={C.soft} style={st.input} onSubmitEditing={addOther} />
-            <Button label="추가" kind="plain" onPress={addOther} style={{ paddingVertical: 10 }} />
-          </View>
+          {!checking && (
+            <View style={st.typeRow}>
+              <Input value={other} onChangeText={setOther} placeholder="다른 재료 이름" style={st.input} onSubmitEditing={addOther} />
+              <Button label="추가" kind="plain" onPress={addOther} style={{ paddingVertical: 10 }} />
+            </View>
+          )}
 
-          {drafts.length > 0 && <Text style={st.label}>이렇게 넣을게요. 틀린 곳만 고쳐 주세요</Text>}
-          {drafts.map((d) => (
+          {showCards && drafts.length > 0 && <Text style={st.label}>이렇게 넣을게요. 틀린 곳만 고쳐 주세요</Text>}
+          {showCards && drafts.map((d) => (
             <DraftCard key={d.id} d={d} update={(p) => update(d.id, p)} remove={() => setDrafts((x) => x.filter((y) => y.id !== d.id))} />
           ))}
         </ScrollView>
         {drafts.length > 0 && (
           <View style={st.footer}>
-            <Button label={`냉장고에 넣기 (${drafts.length})`} onPress={save} style={{ flex: 1 }} />
+            {showCards ? (
+              <Button label={`${saveTo(drafts)}에 넣기 (${drafts.length})`} onPress={save} style={{ flex: 1 }} />
+            ) : (
+              <Button label={`${drafts.length}개 골랐어요 · 다음`} onPress={() => setChecking(true)} style={{ flex: 1 }} />
+            )}
           </View>
         )}
       </View>
     </Modal>
   );
+}
+
+// Where the save button says things go: one compartment if they all go there, else the fridge.
+function saveTo(drafts: Draft[]) {
+  const places = new Set(drafts.map((d) => d.place));
+  return places.size === 1 ? ROOM[[...places][0]] : '냉장고';
 }
 
 function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>) => void; remove: () => void }) {
@@ -208,10 +253,19 @@ function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>
       <View style={st.cardTop}>
         <Thumb item={d} size={48} />
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={st.name}>
-            {d.name}
-            {d.qty ? <Text style={st.qty}>  {d.qty}</Text> : null}
-          </Text>
+          {d.photo || !known ? (
+            <Input
+              value={d.name}
+              onChangeText={(name) => {
+                const food = findFood(name);
+                update(food ? { name, foodId: food.id, category: food.category } : { name, foodId: undefined });
+              }}
+              placeholder="이름 (예: 카레, 2번 반찬)"
+              style={st.nameInput}
+            />
+          ) : (
+            <Text style={st.name}>{d.name}</Text>
+          )}
           {d.heard && <Text style={st.heard}>“{d.heard}”</Text>}
         </View>
         <Pressable hitSlop={10} onPress={remove}>
@@ -230,6 +284,8 @@ function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>
           ))}
         </View>
       )}
+      <Text style={st.field}>개수</Text>
+      <QtyStepper qty={d.qty} onChange={(qty) => update({ qty })} />
       <Text style={st.field}>산 날 / 넣은 날</Text>
       <DateStepper value={d.addedAt} max={today()} onChange={(v) => update({ addedAt: v, placeSince: v })} />
       <Text style={st.field}>포장에 적힌 날짜</Text>
@@ -269,9 +325,14 @@ const st = StyleSheet.create({
   label: { marginTop: 18, marginBottom: 6, fontSize: 15, fontWeight: '800', color: C.ink },
   quick: { flexDirection: 'row', flexWrap: 'wrap' },
   quickItem: { width: '25%', alignItems: 'center', paddingVertical: 6 },
-  modes: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  modes: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  mode: { flex: 1, paddingHorizontal: 6 },
   pickIcon: { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card, borderWidth: 2, borderColor: 'transparent' },
   pickOn: { borderColor: C.mint },
+  back: { fontSize: 15, fontWeight: '800', color: C.mintInk, paddingVertical: 4 },
+  kinds: { gap: 6, paddingVertical: 8 },
+  nameInput: { fontSize: 17, fontWeight: '800', color: C.ink, backgroundColor: C.bg, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: C.line },
+  quickIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
   pickCount: { position: 'absolute', top: -6, right: -6, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: C.mint, color: '#FFFFFF', fontSize: 12, fontWeight: '800', textAlign: 'center', lineHeight: 20, overflow: 'hidden' },
   quickName: { fontSize: 12, fontWeight: '700', color: C.ink, marginTop: 2 },
   card: { backgroundColor: C.card, borderRadius: 18, padding: 12, marginTop: 10 },
@@ -285,6 +346,6 @@ const st = StyleSheet.create({
   field: { marginTop: 10, marginBottom: 4, fontSize: 12, fontWeight: '700', color: C.soft },
   eat: { marginTop: 10, fontSize: 14, color: C.soft },
   why: { fontSize: 12, color: C.mintInk, fontWeight: '600', marginTop: 2 },
-  footer: { position: 'absolute', left: 18, right: 18, bottom: 28, flexDirection: 'row' },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', paddingHorizontal: 18, paddingTop: 10, paddingBottom: 28, backgroundColor: C.bg },
 });
 

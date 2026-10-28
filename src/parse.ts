@@ -118,7 +118,8 @@ export function parseSpeech(text: string, opts: { on: string; place?: Place }): 
     let rest = text.slice(mark.index + mark.length, end);
     const heard = text.slice(mark.index, end).replace(/[\s,.;]+$/, '').trim();
     const food = mark.food;
-    const item: Parsed = { food, name: mark.name, heard, place: opts.place ?? food.place, addedAt: opts.on };
+    // A one-letter short form ("파") reads better as the full name ("대파").
+    const item: Parsed = { food, name: mark.name.length === 1 && food.name.length > 1 && food.name.endsWith(mark.name) ? food.name : mark.name, heard, place: opts.place ?? food.place, addedAt: opts.on };
 
     // A place said out loud wins over the compartment the user tapped.
     if (/냉동/.test(rest)) item.place = '냉동';

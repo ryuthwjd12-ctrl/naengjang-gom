@@ -1,22 +1,13 @@
 // One item up close: its photo (tap to take one; it replaces the drawing everywhere), where it is, its dates,
 // and why its safe-to-eat date is what it is. Every change saves right away.
 
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CATEGORIES } from './AddSheet';
 import { findFood } from './foods';
 import { eatBy, josa, level, moveTo, today, type DateKind, type Item } from './item';
-import { keepPhoto, removeItem, updateItem } from './store';
-import { Button, C, Chip, DateStepper, LevelBadge, PLACES, Thumb, dateLabel } from './ui';
-
-export async function takePhoto(): Promise<string | null> {
-  const camera = Platform.OS !== 'web' && (await ImagePicker.requestCameraPermissionsAsync()).granted;
-  const res = camera
-    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 })
-    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 });
-  if (res.canceled || !res.assets[0]) return null;
-  return keepPhoto(res.assets[0].uri);
-}
+import { takePhoto } from './photo';
+import { removeItem, updateItem } from './store';
+import { Button, C, Chip, DateStepper, Input, QtyStepper, LevelBadge, PLACES, Thumb, dateLabel } from './ui';
 
 function confirm(title: string, message: string, ok: () => void) {
   if (Platform.OS === 'web') {
@@ -65,7 +56,7 @@ export function ItemSheet({ item, onClose }: { item: Item | null; onClose: () =>
               <Chip small label={item.photo ? '📷 다시 찍기' : '📷 사진 찍기'} onPress={photo} />
               {item.photo && <Chip small label="그림으로 돌아가기" onPress={() => set({ photo: undefined })} />}
             </View>
-            <TextInput value={item.name} onChangeText={rename} style={st.name} />
+            <Input value={item.name} onChangeText={rename} style={st.name} />
             <LevelBadge item={item} />
           </View>
 
@@ -95,6 +86,9 @@ export function ItemSheet({ item, onClose }: { item: Item | null; onClose: () =>
               </View>
             </>
           )}
+
+          <Text style={st.field}>개수</Text>
+          <QtyStepper qty={item.qty} onChange={(qty) => set({ qty })} />
 
           <Text style={st.field}>산 날 / 넣은 날</Text>
           <DateStepper value={item.addedAt} max={today()} onChange={(v) => set({ addedAt: v, placeSince: item.place === '냉동' ? item.placeSince : v })} />
@@ -127,7 +121,7 @@ export function ItemSheet({ item, onClose }: { item: Item | null; onClose: () =>
           )}
 
           <Text style={st.field}>메모</Text>
-          <TextInput
+          <Input
             value={item.note ?? ''}
             onChangeText={(note) => set({ note: note || undefined })}
             placeholder={item.box != null ? `${item.box}번 통에 든 것 (예: 다짐육 200g)` : '양, 들어간 것 등'}
