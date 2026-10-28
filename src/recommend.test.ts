@@ -1,6 +1,6 @@
-// Run: node --experimental-strip-types src/recommend.test.ts
+// Run: npm test
 import assert from 'node:assert/strict';
-import { recommend, type Recipe, type Stock } from './recommend.ts';
+import { recommend, type Recipe, type Stock } from './recommend';
 
 const stock: Stock[] = [
   { name: '두부', daysLeft: 1 },

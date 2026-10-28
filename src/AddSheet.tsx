@@ -1,0 +1,227 @@
+// Adding things: say it (or type it the way you'd say it), tap the common ones, then check the confirm cards.
+// Nothing is saved until "냉장고에 넣기", and each card can be fixed with a tap.
+
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Character } from './Character';
+import type { Category } from './Ingredients';
+import { QUICK, findFood, foodById, type Food, type Place } from './foods';
+import { eatBy, newId, today, type DateKind, type Item } from './item';
+import { parseSpeech } from './parse';
+import { useSpeech } from './speech';
+import { addItems } from './store';
+import { Button, C, Chip, DateStepper, PLACES, ROOM, Thumb, dateLabel } from './ui';
+
+type Draft = Item & { heard?: string };
+
+function fromFood(food: Food, place: Place | undefined, on: string): Draft {
+  const p = place ?? food.place;
+  return { id: newId(), name: food.name, foodId: food.id, category: food.category, place: p, placeSince: on, addedAt: on };
+}
+
+export const CATEGORIES: { id: Category; label: string }[] = [
+  { id: 'veg', label: '채소·과일' }, { id: 'meat', label: '고기' }, { id: 'fish', label: '생선·해물' },
+  { id: 'dairy', label: '유제품' }, { id: 'sauce', label: '소스' }, { id: 'other', label: '기타' },
+];
+
+export function AddSheet({ visible, place, onClose }: { visible: boolean; place?: Place; onClose: () => void }) {
+  const [text, setText] = useState('');
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [other, setOther] = useState('');
+  const on = today();
+
+  const speech = useSpeech((t, final) => {
+    setText(t);
+    if (final) analyse(t);
+  });
+
+  function analyse(t = text) {
+    const parsed = parseSpeech(t, { on, place });
+    const add = parsed.map<Draft>((p) => ({
+      ...fromFood(p.food, p.place, on),
+      name: p.name,
+      addedAt: p.addedAt,
+      placeSince: p.addedAt,
+      qty: p.qty,
+      dateKind: p.dateKind,
+      date: p.date,
+      openedAt: p.opened ? p.addedAt : undefined,
+      heard: p.heard,
+    }));
+    setDrafts((d) => [...d, ...add]);
+    setText('');
+  }
+  function addOther() {
+    const name = other.trim();
+    if (!name) return;
+    const food = findFood(name);
+    setDrafts((d) => [...d, food ? fromFood(food, place, on) : { id: newId(), name, category: 'other', place: place ?? '냉장', placeSince: on, addedAt: on }]);
+    setOther('');
+  }
+  function save() {
+    addItems(drafts.map(({ heard: _heard, ...item }) => ({ ...item, placeSince: item.place === '냉동' ? item.addedAt : item.placeSince })));
+    close();
+  }
+  function close() {
+    if (speech.listening) speech.stop();
+    setDrafts([]);
+    setText('');
+    onClose();
+  }
+  const update = (id: string, patch: Partial<Draft>) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <View style={st.sheet}>
+        <View style={st.top}>
+          <Text style={st.title}>{place ? `${ROOM[place]}에 넣기` : '냉장고에 넣기'}</Text>
+          <Pressable hitSlop={10} onPress={close}>
+            <Text style={st.close}>닫기</Text>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+          <View style={st.bearRow}>
+            <Character face="🐻" size={56} apron pose={speech.listening ? 'cheer' : 'stand'} mood={speech.listening ? 'happy' : 'normal'} />
+            <View style={st.bubble}>
+              <Text style={st.bubbleText}>
+                {speech.listening ? '듣고 있어요!' : '산 날과 기한까지 말해 주면 알아서 적을게요.'}
+              </Text>
+              <Text style={st.example}>예: 두부 오늘 샀고 소비기한 11월 5일, 대파 3일 전에 샀어</Text>
+            </View>
+          </View>
+
+          {speech.available && (
+            <Pressable onPress={speech.listening ? speech.stop : speech.start} style={[st.mic, speech.listening && st.micOn]}>
+              <Text style={st.micText}>{speech.listening ? '■ 다 말했어요' : '🎙 눌러서 말하기'}</Text>
+            </Pressable>
+          )}
+          {speech.error && <Text style={st.error}>{speech.error}</Text>}
+
+          <View style={st.typeRow}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={speech.available ? '말 대신 적어도 돼요' : '말하듯 적어 주세요'}
+              placeholderTextColor={C.soft}
+              style={st.input}
+              multiline
+              onSubmitEditing={() => analyse()}
+            />
+            <Button label="적기" onPress={() => analyse()} style={{ paddingVertical: 10 }} />
+          </View>
+
+          <Text style={st.label}>자주 사는 것</Text>
+          <View style={st.quick}>
+            {QUICK.map((id) => {
+              const food = foodById(id)!;
+              return (
+                <Pressable key={id} onPress={() => setDrafts((d) => [...d, fromFood(food, place, on)])} style={st.quickItem}>
+                  <Thumb item={{ foodId: id, category: food.category }} size={40} />
+                  <Text style={st.quickName}>{food.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={st.typeRow}>
+            <TextInput value={other} onChangeText={setOther} placeholder="다른 재료 이름" placeholderTextColor={C.soft} style={st.input} onSubmitEditing={addOther} />
+            <Button label="추가" kind="plain" onPress={addOther} style={{ paddingVertical: 10 }} />
+          </View>
+
+          {drafts.length > 0 && <Text style={st.label}>이렇게 넣을게요. 틀린 곳만 고쳐 주세요</Text>}
+          {drafts.map((d) => (
+            <DraftCard key={d.id} d={d} update={(p) => update(d.id, p)} remove={() => setDrafts((x) => x.filter((y) => y.id !== d.id))} />
+          ))}
+        </ScrollView>
+        {drafts.length > 0 && (
+          <View style={st.footer}>
+            <Button label={`냉장고에 넣기 (${drafts.length})`} onPress={save} style={{ flex: 1 }} />
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>) => void; remove: () => void }) {
+  const known = !!d.foodId;
+  const by = eatBy(d);
+  return (
+    <View style={st.card}>
+      <View style={st.cardTop}>
+        <Thumb item={d} size={48} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={st.name}>
+            {d.name}
+            {d.qty ? <Text style={st.qty}>  {d.qty}</Text> : null}
+          </Text>
+          {d.heard && <Text style={st.heard}>“{d.heard}”</Text>}
+        </View>
+        <Pressable hitSlop={10} onPress={remove}>
+          <Text style={st.remove}>✕</Text>
+        </Pressable>
+      </View>
+      <View style={st.chips}>
+        {PLACES.map((p) => (
+          <Chip key={p} small label={p} on={d.place === p} onPress={() => update({ place: p })} />
+        ))}
+      </View>
+      {!known && (
+        <View style={st.chips}>
+          {CATEGORIES.map((c) => (
+            <Chip key={c.id} small label={c.label} on={d.category === c.id} onPress={() => update({ category: c.id })} />
+          ))}
+        </View>
+      )}
+      <Text style={st.field}>산 날 / 넣은 날</Text>
+      <DateStepper value={d.addedAt} max={today()} onChange={(v) => update({ addedAt: v, placeSince: v })} />
+      <Text style={st.field}>포장에 적힌 날짜</Text>
+      <View style={st.chips}>
+        {(['소비기한', '유통기한'] as DateKind[]).map((k) => (
+          <Chip key={k} small label={k} on={d.dateKind === k} onPress={() => update({ dateKind: k, date: d.date ?? today() })} />
+        ))}
+        <Chip small label="없음" on={!d.dateKind} onPress={() => update({ dateKind: undefined, date: undefined })} />
+      </View>
+      {d.date && <DateStepper value={d.date} onChange={(v) => update({ date: v })} />}
+      <View style={[st.chips, { marginTop: 8 }]}>
+        <Chip small label={d.openedAt ? '개봉함 ✓' : '개봉 안 함'} on={!!d.openedAt} onPress={() => update({ openedAt: d.openedAt ? undefined : d.addedAt })} />
+      </View>
+      <Text style={st.eat}>
+        먹을 수 있는 기한 <Text style={{ color: C.ink, fontWeight: '800' }}>{dateLabel(by.date)}</Text>
+      </Text>
+      <Text style={st.why}>{by.why}</Text>
+    </View>
+  );
+}
+
+const st = StyleSheet.create({
+  sheet: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 18, paddingTop: 18 },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  title: { fontSize: 22, fontWeight: '800', color: C.ink },
+  close: { fontSize: 16, fontWeight: '700', color: C.soft },
+  bearRow: { flexDirection: 'row', alignItems: 'center' },
+  bubble: { flex: 1, marginLeft: 6, backgroundColor: C.card, borderRadius: 16, padding: 12 },
+  bubbleText: { fontSize: 15, fontWeight: '700', color: C.ink },
+  example: { marginTop: 4, fontSize: 12, color: C.soft },
+  mic: { marginTop: 12, backgroundColor: C.mint, borderRadius: 26, paddingVertical: 16, alignItems: 'center' },
+  micOn: { backgroundColor: '#F59A7E' },
+  micText: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  error: { marginTop: 8, color: '#D06A5A', fontWeight: '700' },
+  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  input: { flex: 1, minHeight: 44, backgroundColor: C.card, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: C.ink, borderWidth: 1, borderColor: C.line },
+  label: { marginTop: 18, marginBottom: 6, fontSize: 15, fontWeight: '800', color: C.ink },
+  quick: { flexDirection: 'row', flexWrap: 'wrap' },
+  quickItem: { width: '25%', alignItems: 'center', paddingVertical: 6 },
+  quickName: { fontSize: 12, fontWeight: '700', color: C.ink, marginTop: 2 },
+  card: { backgroundColor: C.card, borderRadius: 18, padding: 12, marginTop: 10 },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  name: { fontSize: 17, fontWeight: '800', color: C.ink },
+  qty: { fontSize: 13, fontWeight: '700', color: C.soft },
+  heard: { fontSize: 12, color: C.soft, marginTop: 2 },
+  remove: { fontSize: 18, color: C.soft, paddingHorizontal: 4 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  field: { marginTop: 10, marginBottom: 4, fontSize: 12, fontWeight: '700', color: C.soft },
+  eat: { marginTop: 10, fontSize: 14, color: C.soft },
+  why: { fontSize: 12, color: C.mintInk, fontWeight: '600', marginTop: 2 },
+  footer: { position: 'absolute', left: 18, right: 18, bottom: 28, flexDirection: 'row' },
+});
+
