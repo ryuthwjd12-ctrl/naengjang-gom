@@ -1,28 +1,14 @@
 import type { ReactElement } from 'react';
 import Svg, { Circle, Ellipse, G, Path, Rect, Text } from 'react-native-svg';
+import { Face, INK } from './Face';
+import { MORE_ART } from './IngredientArt';
 
 // Ingredient drawings, all on a 100-unit square, in the same pastel chibi style as the bear (from 쿠키 타이머).
 // Each one gets the same tiny face (Face) so the fridge reads as a shelf of little friends.
 // Adding an ingredient: draw it in a 100x100 box, put its face where its "body" is widest, and add it to ART.
-// Anything without its own drawing falls back to its category drawing (CATEGORY_ART).
+// More drawings live in IngredientArt.tsx, keyed by food id. Anything without one falls back to its category drawing.
 
-const INK = '#5A4A48';
-const BLUSH = '#F7B6BE';
 const LINE = 'rgba(90,74,72,0.18)';
-
-function Face({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
-  return (
-    <G transform={`translate(${x} ${y}) scale(${s * 1.25})`}>
-      <Circle cx={-7} cy={0} r={2.6} fill={INK} />
-      <Circle cx={7} cy={0} r={2.6} fill={INK} />
-      <Circle cx={-6.2} cy={-0.9} r={0.9} fill="#FFFFFF" />
-      <Circle cx={7.8} cy={-0.9} r={0.9} fill="#FFFFFF" />
-      <Ellipse cx={-11.5} cy={4.5} rx={3.6} ry={2.2} fill={BLUSH} opacity={0.8} />
-      <Ellipse cx={11.5} cy={4.5} rx={3.6} ry={2.2} fill={BLUSH} opacity={0.8} />
-      <Path d="M-2.6 3.2 Q0 5.6 2.6 3.2" stroke={INK} strokeWidth={1.4} fill="none" strokeLinecap="round" />
-    </G>
-  );
-}
 
 const egg = (
   <G>
@@ -185,7 +171,7 @@ const CATEGORY_ART: Record<Category, ReactElement> = {
 };
 
 export function Ingredient({ id, category = 'other', size = 48 }: { id?: string; category?: Category; size?: number }) {
-  const art = (id && ART[id as IngredientId]) || CATEGORY_ART[category];
+  const art = (id && (ART[id as IngredientId] ?? MORE_ART[id])) || CATEGORY_ART[category];
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100">
       {art}

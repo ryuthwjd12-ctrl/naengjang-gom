@@ -7,7 +7,7 @@ import { Character } from './src/Character';
 import { Fridge as FridgeBody } from './src/Fridge';
 import { BoxIcon, Category, Ingredient } from './src/Ingredients';
 import { ItemSheet, takePhoto } from './src/ItemSheet';
-import type { Place } from './src/foods';
+import { FOODS, type Place } from './src/foods';
 import { addDays, josa, level, newId, today, type Item } from './src/item';
 import { addItems, nextBoxNumber, useItems } from './src/store';
 import { C, LevelBadge, PLACES, ROOM, Thumb } from './src/ui';
@@ -156,26 +156,22 @@ function useDemo(ready: boolean, items: Item[]) {
   }, [ready]);
 }
 
-const ART_LIST: { id?: string; category?: Category; name: string; box?: boolean }[] = [
-  { id: 'egg', name: '계란' }, { id: 'tofu', name: '두부' }, { id: 'greenOnion', name: '대파' },
-  { id: 'onion', name: '양파' }, { id: 'milk', name: '우유' }, { id: 'kimchi', name: '김치' },
-  { id: 'pork', name: '돼지고기' }, { id: 'carrot', name: '당근' }, { id: 'potato', name: '감자' },
-  { id: 'mushroom', name: '버섯' }, { id: 'rice', name: '밥' }, { box: true, name: '소분 통' },
-  { category: 'veg', name: '채소 (기본)' }, { category: 'fish', name: '생선 (기본)' }, { category: 'sauce', name: '소스 (기본)' },
-];
-
 function ArtScreen() {
   return (
     <ScrollView contentContainerStyle={[s.page, { paddingTop: 48 }]}>
       <Text style={s.title}>재료 그림 시안</Text>
-      <Text style={[s.sub, { marginBottom: 14 }]}>그림이 없는 재료는 종류별 기본 그림으로 나와요</Text>
-      <View style={s.fridge}>
-        {ART_LIST.map((a) => (
-          <View key={a.name} style={s.cell}>
-            <View style={s.icon}>{a.box ? <BoxIcon n={3} size={64} /> : <Ingredient id={a.id} category={a.category} size={64} />}</View>
-            <Text style={s.name}>{a.name}</Text>
+      <Text style={[s.sub, { marginBottom: 14 }]}>재료 {FOODS.length}개, 목록에 없는 재료는 종류별 기본 그림</Text>
+      <View style={s.artGrid}>
+        {FOODS.map((f) => (
+          <View key={f.id} style={s.artCell}>
+            <Ingredient id={f.art ?? f.id} category={f.category} size={56} />
+            <Text style={s.artName}>{f.name}</Text>
           </View>
         ))}
+        <View style={s.artCell}>
+          <BoxIcon n={3} size={56} />
+          <Text style={s.artName}>소분 통</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -200,6 +196,9 @@ const s = StyleSheet.create({
   tabTextOn: { color: '#FFFFFF' },
   fridge: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: C.fridge, borderRadius: 24, padding: 8, borderWidth: 3, borderColor: C.fridgeLine, minHeight: 160 },
   cell: { width: '33.33%', alignItems: 'center', paddingVertical: 8 },
+  artGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  artCell: { width: '20%', alignItems: 'center', paddingVertical: 4 },
+  artName: { fontSize: 10, color: C.ink, fontWeight: '700' },
   icon: { width: 72, height: 72, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   iconPhoto: { backgroundColor: 'transparent' },
   name: { marginTop: 6, fontSize: 15, fontWeight: '700', color: C.ink, maxWidth: '90%' },

@@ -88,6 +88,8 @@ function mentions(text: string) {
       if (name.length === 1 && i > 0 && /[가-힣]/.test(text[i - 1])) continue;
       const after = text[i + name.length];
       if (after && /[가-힣]/.test(after) && !/^(은|는|이|가|을|를|도|랑|이랑|하고|과|와|만|좀|요|두|한|세|네)/.test(text.slice(i + name.length))) continue;
+      // "여러 가지", "몇 가지" mean "kinds of", not 가지 (eggplant).
+      if (name === '가지' && /(몇|여러|두|세|네|한|다섯|온갖)\s*$/.test(text.slice(0, i))) continue;
       for (let k = i; k < i + name.length; k++) taken[k] = true;
       found.push({ index: i, length: name.length, food, name });
     }

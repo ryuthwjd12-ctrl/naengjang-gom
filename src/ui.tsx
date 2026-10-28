@@ -29,7 +29,7 @@ export const ROOM: Record<Place, string> = { 냉장: '냉장실', 냉동: '냉�
 export function Thumb({ item, size }: { item: Pick<Item, 'photo' | 'box' | 'foodId' | 'category'>; size: number }) {
   if (item.photo) return <Image source={{ uri: photoUri(item.photo) }} style={{ width: size, height: size, borderRadius: size * 0.28 }} />;
   if (item.box != null) return <BoxIcon n={item.box} size={size} />;
-  return <Ingredient id={foodById(item.foodId)?.art} category={item.category} size={size} />;
+  return <Ingredient id={foodById(item.foodId)?.art ?? item.foodId} category={item.category} size={size} />;
 }
 
 const LEVEL_COLOR: Record<Level, string | null> = { over: C.over, soon: C.soon, week: C.week, ok: null };

@@ -50,4 +50,5 @@ assert.deepEqual(pick('어제 산 두부랑 오늘 산 계란').map((p) => p.add
 assert.deepEqual(pick('두부 어제 샀고 계란 그저께').map((p) => p.addedAt), ['2026-10-26', '2026-10-25']);
 // 파 alone is 대파, but not inside 양파.
 assert.deepEqual(pickFood('파 한 단이랑 양파').map((p) => p.food.id), ['greenOnion', 'onion']);
+assert.deepEqual(pickFood('여러 가지 샀어, 가지 두 개').map((p) => p.food.id), ['eggplant']);
 console.log('parse: ok');
