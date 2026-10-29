@@ -6,6 +6,7 @@ import { BoxIcon, Ingredient } from './Ingredients';
 import { foodById, type Place } from './foods';
 import { addDays, daysBetween, level, parseYmd, today, ymd, type Item, type Level } from './item';
 import { photoUri } from './store';
+import { useDrawingFor } from './drawings';
 
 export const C = {
   bg: '#FFF8EE',
@@ -26,11 +27,14 @@ export const C = {
 export const PLACES: Place[] = ['냉장', '냉동', '실온'];
 export const ROOM: Record<Place, string> = { 냉장: '냉장실', 냉동: '냉동실', 실온: '실온 칸' };
 
-// The user's own photo wins over any drawing; then a numbered box; then the ingredient's drawing.
-export function Thumb({ item, size }: { item: Pick<Item, 'photo' | 'box' | 'foodId' | 'category'>; size: number }) {
+// The user's own photo wins over any drawing; then a numbered box; then the ingredient's drawing, or for something
+// the dictionary doesn't know, the drawing the user picked for that name (drawings.ts), else the kind's drawing.
+export function Thumb({ item, size }: { item: Pick<Item, 'photo' | 'box' | 'foodId' | 'category'> & { name?: string }; size: number }) {
+  const picked = useDrawingFor(item.foodId ? undefined : item.name);
   if (item.photo) return <Image source={{ uri: photoUri(item.photo) }} style={{ width: size, height: size, borderRadius: size * 0.28 }} />;
   if (item.box != null) return <BoxIcon n={item.box} size={size} />;
-  return <Ingredient id={foodById(item.foodId)?.art ?? item.foodId} category={item.category} size={size} />;
+  const id = item.foodId ?? picked;
+  return <Ingredient id={foodById(id)?.art ?? id} category={item.category} size={size} />;
 }
 
 const LEVEL_COLOR: Record<Level, string | null> = { over: C.over, soon: C.soon, week: C.week, ok: null };

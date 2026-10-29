@@ -9,6 +9,8 @@ import { FOODS, QUICK, findFood, foodById, type Food, type Place } from './foods
 import { eatBy, newId, today, type DateKind, type Item } from './item';
 import { parseSpeech } from './parse';
 import { takePhoto } from './photo';
+import { DrawingPicker } from './DrawingPicker';
+import { pickDrawing, useDrawingFor } from './drawings';
 import { useSpeech } from './speech';
 import { addItems } from './store';
 import { Button, C, Chip, DateStepper, Input, QtyStepper, PLACES, ROOM, Thumb, dateLabel } from './ui';
@@ -248,10 +250,15 @@ function saveTo(drafts: Draft[]) {
 function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>) => void; remove: () => void }) {
   const known = !!d.foodId;
   const by = eatBy(d);
+  const canDraw = !known && !d.photo && d.box == null;
+  const [drawing, setDrawing] = useState(false);
+  const picked = useDrawingFor(canDraw ? d.name : undefined);
   return (
     <View style={st.card}>
       <View style={st.cardTop}>
-        <Thumb item={d} size={48} />
+        <Pressable disabled={!canDraw || !d.name.trim()} onPress={() => setDrawing(true)}>
+          <Thumb item={d} size={48} />
+        </Pressable>
         <View style={{ flex: 1, marginLeft: 10 }}>
           {d.photo || !known ? (
             <Input
@@ -272,6 +279,16 @@ function DraftCard({ d, update, remove }: { d: Draft; update: (p: Partial<Draft>
           <Text style={st.remove}>✕</Text>
         </Pressable>
       </View>
+      {canDraw && (
+        <View style={st.chips}>
+          {d.name.trim() ? (
+            <Chip small label={picked ? '🎨 그림 바꾸기' : '🎨 닮은 그림 고르기'} onPress={() => setDrawing(true)} />
+          ) : (
+            <Text style={st.why}>이름을 적으면 닮은 그림을 고를 수 있어요.</Text>
+          )}
+        </View>
+      )}
+      {drawing && <DrawingPicker name={d.name.trim()} category={d.category} current={picked} onPick={(id) => pickDrawing(d.name, id)} onClose={() => setDrawing(false)} />}
       <View style={st.chips}>
         {PLACES.map((p) => (
           <Chip key={p} small label={p} on={d.place === p} onPress={() => update({ place: p })} />

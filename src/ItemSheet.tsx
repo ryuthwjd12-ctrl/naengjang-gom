@@ -1,11 +1,14 @@
 // One item up close: its photo (tap to take one; it replaces the drawing everywhere), where it is, its dates,
 // and why its safe-to-eat date is what it is. Every change saves right away.
 
+import { useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CATEGORIES } from './AddSheet';
 import { findFood } from './foods';
 import { eatBy, josa, level, moveTo, today, type DateKind, type Item } from './item';
 import { takePhoto } from './photo';
+import { DrawingPicker } from './DrawingPicker';
+import { pickDrawing, useDrawingFor } from './drawings';
 import { removeItem, updateItem } from './store';
 import { Button, C, Chip, DateStepper, Input, QtyStepper, LevelBadge, PLACES, Thumb, dateLabel } from './ui';
 
@@ -18,10 +21,13 @@ function confirm(title: string, message: string, ok: () => void) {
 }
 
 export function ItemSheet({ item, onClose }: { item: Item | null; onClose: () => void }) {
+  const [drawing, setDrawing] = useState(false);
+  const picked = useDrawingFor(item && !item.foodId ? item.name : undefined);
   if (!item) return null;
   const set = (patch: Partial<Item>) => updateItem({ ...item, ...patch });
   const by = eatBy(item);
   const { level: lv } = level(item);
+  const canDraw = !item.foodId && !item.photo && item.box == null && !!item.name.trim();
 
   async function photo() {
     const uri = await takePhoto();
@@ -55,8 +61,10 @@ export function ItemSheet({ item, onClose }: { item: Item | null; onClose: () =>
             <View style={st.photoBtns}>
               <Chip small label={item.photo ? '📷 다시 찍기' : '📷 사진 찍기'} onPress={photo} />
               {item.photo && <Chip small label="그림으로 돌아가기" onPress={() => set({ photo: undefined })} />}
+              {canDraw && <Chip small label={picked ? '🎨 그림 바꾸기' : '🎨 닮은 그림'} onPress={() => setDrawing(true)} />}
             </View>
             <Input value={item.name} onChangeText={rename} style={st.name} />
+            {drawing && <DrawingPicker name={item.name.trim()} category={item.category} current={picked} onPick={(id) => pickDrawing(item.name, id)} onClose={() => setDrawing(false)} />}
             <LevelBadge item={item} />
           </View>
 
