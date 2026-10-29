@@ -43,7 +43,8 @@ export function recommend(recipes: Recipe[], stock: Stock[], subs: Substitutes =
         continue;
       }
       // Of the substitutes on hand, use the one that runs out first, so it gets eaten.
-      const options = (subs[need] ?? []).filter((s) => have.has(s)).sort((a, b) => have.get(a)! - have.get(b)!);
+      // A substitute must not be something the recipe already uses (애호박 → 양파 when 양파 is already in it).
+      const options = (subs[need] ?? []).filter((s) => have.has(s) && !recipe.ingredients.includes(s)).sort((a, b) => have.get(a)! - have.get(b)!);
       if (options.length) {
         swaps.push({ need, use: options[0] });
         days.push(have.get(options[0])!);

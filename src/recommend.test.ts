@@ -1,6 +1,6 @@
-// Run: node --experimental-strip-types src/recommend.test.ts
+// Run: npm test
 import assert from 'node:assert/strict';
-import { recommend, type Recipe, type Stock } from './recommend.ts';
+import { recommend, type Recipe, type Stock } from './recommend';
 
 const stock: Stock[] = [
   { name: '두부', daysLeft: 1 },
@@ -32,4 +32,6 @@ assert.deepEqual(out.find((m) => m.recipe.id === 'c')!.swaps, [{ need: '쪽파',
 assert.deepEqual(out.find((m) => m.recipe.id === 'd')!.missing, ['버섯']);
 assert.equal(out.find((m) => m.recipe.id === 'f'), undefined);
 assert.equal(out[0].urgentIn, 1);
+// A substitute already in the recipe doesn't count twice.
+assert.equal(recommend([{ id: 'x', name: '된장찌개', ingredients: ['애호박', '양파', '두부', '감자'] }], stock, { 애호박: ['양파'] }).length, 0);
 console.log('recommend: ok', names.join(' > '));

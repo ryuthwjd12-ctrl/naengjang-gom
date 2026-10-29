@@ -8,9 +8,32 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ryuthwjd12.naengjanggom",
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
-    "android": { "package": "com.ryuthwjd12.naengjanggom" },
-    "web": { "bundler": "metro" }
+    "android": {
+      "package": "com.ryuthwjd12.naengjanggom"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "말로 재료를 넣을 때 마이크를 사용해요.",
+          "speechRecognitionPermission": "말한 재료와 날짜를 글자로 바꿀 때 음성 인식을 사용해요."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "재료나 소분한 통의 사진을 찍을 때 카메라를 사용해요.",
+          "photosPermission": "앨범에서 재료 사진을 고를 때 사용해요.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
